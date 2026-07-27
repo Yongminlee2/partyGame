@@ -85,11 +85,15 @@ if (liar) {
 // ---- choseong-dict.json ----
 const dict = loadIfExists('choseong-dict.json');
 if (dict) {
-  for (const [cho, words] of Object.entries(dict)) {
+  for (const [cho, entry] of Object.entries(dict)) {
     check(cho.length === 2, `dict[${cho}]: 초성쌍이 2글자 아님`);
-    check(Array.isArray(words) && words.length >= 30, `dict[${cho}]: 30단어 미만 (${words?.length})`);
-    for (const w of words.slice(0, 5)) {
+    check(Array.isArray(entry.w) && entry.w.length >= 30, `dict[${cho}]: 검증 단어 30개 미만 (${entry.w?.length})`);
+    check(Array.isArray(entry.c) && entry.c.length >= 5, `dict[${cho}]: AI 단어 5개 미만 (${entry.c?.length})`);
+    for (const w of entry.w.slice(0, 5)) {
       check(choseong(w) === cho, `dict[${cho}][${w}]: 초성 불일치`);
+    }
+    for (const w of entry.c.slice(0, 3)) {
+      check(entry.w.includes(w), `dict[${cho}][${w}]: c 단어가 w에 없음`);
     }
   }
 }
