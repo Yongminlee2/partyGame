@@ -1,0 +1,9 @@
+# Android 빌드 산출물
+app/build/
+.gradle/
+local.properties
+app/src/main/assets/web/
+
+# 기타
+node_modules/
+*.log
