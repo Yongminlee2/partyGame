@@ -1,4 +1,5 @@
 # Android 빌드 산출물
+build/
 app/build/
 .gradle/
 local.properties
