@@ -1,13 +1,8 @@
 // 복불복 룰렛: 이름·벌칙을 넣고 돌린다.
 import { sfx } from '../core/sound.js';
+import { fx } from '../core/fx.js';
 import { load, save } from '../core/store.js';
-
-const PRESETS = [
-  '코 만지고 노래 부르기', '애교 3종 세트', '옆 사람 어깨 안마 1분', '물 한 컵 원샷',
-  '성대모사 하나', '10초 막춤', '삼행시 짓기', '윙크 날리기', '개인기 보여주기',
-  '한 곡 열창', '팔굽혀펴기 10개', '오늘 커피 쏘기', '다음 판 벌칙 2배', '통과 (행운!)',
-  '셀카 찍어서 단톡방에 올리기',
-];
+import { loadData, shuffle } from '../core/data.js';
 
 // 포인터(12시)에 걸린 칸: 룰렛이 시계방향으로 angle만큼 돌았을 때
 export function winnerAt(angle, n) {
@@ -32,20 +27,49 @@ export default {
       <div class="top-bar"><button class="back-btn" onclick="location.hash=''">←</button><h2>🎡 복불복 룰렛</h2></div>
       <p style="color:var(--fg-dim); padding-bottom:8px">이름이나 벌칙을 한 줄에 하나씩 (2~8개)</p>
       <textarea id="items" rows="6" style="width:100%; font-family:inherit; font-size:1rem; background:var(--bg-card); color:var(--fg); border:2px solid var(--bg-card-hover); border-radius:12px; padding:12px; resize:none">${items.join('\n')}</textarea>
-      <div class="btn-row" style="padding:14px 0">
+      <div class="btn-row" style="padding:14px 0; flex-wrap:wrap">
         <button class="btn" id="go">룰렛 만들기</button>
         <button class="btn secondary small" id="preset">🎲 랜덤 벌칙 채우기</button>
+        <button class="btn secondary small" id="draw">🎴 벌칙 카드 뽑기</button>
       </div>`;
-    this.el.querySelector('#preset').addEventListener('click', () => {
-      const shuffled = PRESETS.slice().sort(() => Math.random() - 0.5).slice(0, 6);
-      this.el.querySelector('#items').value = shuffled.join('\n');
+    this.el.querySelector('#preset').addEventListener('click', async () => {
+      const penalties = await loadData('penalties');
+      this.el.querySelector('#items').value = shuffle(penalties).slice(0, 6).join('\n');
     });
+    this.el.querySelector('#draw').addEventListener('click', () => this.drawCard());
     this.el.querySelector('#go').addEventListener('click', () => {
       const list = this.el.querySelector('#items').value.split('\n').map(s => s.trim()).filter(Boolean).slice(0, 8);
       if (list.length < 2) return;
       save('roulette.items', list);
       this.wheel(list);
     });
+  },
+
+  // 벌칙 카드 뽑기: 탭 한 번에 랜덤 벌칙 한 장
+  async drawCard() {
+    const penalties = await loadData('penalties');
+    const draw = () => {
+      const p = penalties[Math.floor(Math.random() * penalties.length)];
+      sfx.fanfare();
+      fx.vibrate([40, 40, 80]);
+      const card = this.el.querySelector('#pcard');
+      if (card) {
+        card.style.animation = 'none';
+        void card.offsetWidth;
+        card.style.animation = 'fx-pop-sm .3s ease-out';
+        card.textContent = p;
+      }
+    };
+    this.el.innerHTML = `
+      <div class="top-bar"><button class="back-btn" id="back">←</button><h2>🎴 벌칙 뽑기</h2></div>
+      <div class="screen-center" style="gap:18px">
+        <div class="card-panel" id="pcard" style="min-height:130px; width:100%; max-width:320px; display:flex; align-items:center; justify-content:center; font-size:1.3rem; font-weight:800; text-align:center">
+          👇 버튼을 눌러 운명을 확인
+        </div>
+        <button class="btn" id="drawbtn">벌칙 뽑기!</button>
+      </div>`;
+    this.el.querySelector('#back').addEventListener('click', () => this.setup());
+    this.el.querySelector('#drawbtn').addEventListener('click', draw);
   },
 
   wheel(items) {

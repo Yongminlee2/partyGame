@@ -1,6 +1,9 @@
 import { initRouter, go } from './core/router.js';
 import { unlockAudio } from './core/sound.js';
 import idiom from './games/idiom.js';
+import balance from './games/balance.js';
+import truth from './games/truth.js';
+import baseball from './games/baseball.js';
 import celeb from './games/celeb.js';
 import charades from './games/charades.js';
 import bomb from './games/bomb.js';
@@ -10,12 +13,15 @@ import photoquiz from './games/photoquiz.js';
 
 // 게임 모듈은 태스크 진행하며 하나씩 등록한다.
 const GAMES = [
-  { id: 'celeb', title: '연예인 퀴즈', emoji: '⭐', desc: '초성·사진으로 맞추기' },
-  { id: 'idiom', title: '사자성어', emoji: '📜', desc: '뒷 두 글자 맞추기' },
+  { id: 'celeb', title: '연예인 퀴즈', emoji: '⭐', desc: '초성·사진 스피드 퀴즈' },
+  { id: 'idiom', title: '사자성어', emoji: '📜', desc: '15초 스피드 퀴즈' },
+  { id: 'balance', title: '밸런스 게임', emoji: '⚖️', desc: '둘 중 하나만!' },
+  { id: 'truth', title: '진실게임', emoji: '🎯', desc: '셋! 하면 동시 지목' },
   { id: 'charades', title: '몸으로 말해요', emoji: '🙆', desc: '이마에 대고 맞추기' },
   { id: 'bomb', title: '폭탄 초성게임', emoji: '💣', desc: '초성 단어 이어말하기' },
   { id: 'liar', title: '라이어 게임', emoji: '🤥', desc: '라이어를 찾아라' },
-  { id: 'roulette', title: '복불복 룰렛', emoji: '🎡', desc: '벌칙·순서 정하기' },
+  { id: 'baseball', title: '숫자야구', emoji: '⚾', desc: '3자리 숫자 추리' },
+  { id: 'roulette', title: '복불복 룰렛', emoji: '🎡', desc: '벌칙·순서·카드뽑기' },
   { id: 'photoquiz', title: '사진 퀴즈 만들기', emoji: '📷', desc: '내 사진으로 출제' },
 ];
 
@@ -90,7 +96,7 @@ for (const g of GAMES) routes[g.id] = placeholder(g.title);
 routes.about = about;
 
 // 구현된 게임 모듈 등록 (placeholder 덮어쓰기)
-for (const game of [idiom, celeb, charades, bomb, liar, roulette, photoquiz]) routes[game.id] = game;
+for (const game of [idiom, celeb, charades, bomb, liar, roulette, photoquiz, balance, truth, baseball]) routes[game.id] = game;
 
 unlockAudio();
 initRouter(routes);
