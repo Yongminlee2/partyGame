@@ -2,6 +2,8 @@ import { initRouter, go } from './core/router.js';
 import { unlockAudio } from './core/sound.js';
 import idiom from './games/idiom.js';
 import celeb from './games/celeb.js';
+import charades from './games/charades.js';
+import bomb from './games/bomb.js';
 
 // 게임 모듈은 태스크 진행하며 하나씩 등록한다.
 const GAMES = [
@@ -53,7 +55,7 @@ for (const g of GAMES) routes[g.id] = placeholder(g.title);
 routes.about = placeholder('정보·출처');
 
 // 구현된 게임 모듈 등록 (placeholder 덮어쓰기)
-for (const game of [idiom, celeb]) routes[game.id] = game;
+for (const game of [idiom, celeb, charades, bomb]) routes[game.id] = game;
 
 unlockAudio();
 initRouter(routes);
