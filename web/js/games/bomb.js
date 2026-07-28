@@ -1,6 +1,7 @@
 // 폭탄 초성게임: 제시된 초성 단어를 번갈아 입력, 숨은 폭탄이 터질 때 든 사람 패배.
 // 솔로 모드는 AI와 1:1 교대.
 import { sfx } from '../core/sound.js';
+import { fx } from '../core/fx.js';
 import { loadData, shuffle } from '../core/data.js';
 import { choseong } from '../core/hangul.js';
 
@@ -63,8 +64,22 @@ export default {
     const fuse = 15000 + Math.random() * 30000;
     later(() => this.explode(), fuse);
 
-    // 긴장감 틱 사운드
-    timers.push(setInterval(() => { if (!this.exploded) sfx.tick(); }, 2000));
+    // 긴장감 틱: 경과 시간에 따라 점점 빨라진다 (총 시간은 여전히 비밀)
+    this.t0 = Date.now();
+    let nextTick = 0;
+    timers.push(setInterval(() => {
+      if (this.exploded) return;
+      const elapsed = Date.now() - this.t0;
+      if (elapsed >= nextTick) {
+        sfx.tick();
+        const gap = Math.max(280, 1600 - elapsed * 0.035);
+        nextTick = elapsed + gap;
+        if (elapsed > 15000) {
+          const bomb = this.el.querySelector('.bomb-wrap');
+          if (bomb) bomb.classList.add('bomb-fast');
+        }
+      }
+    }, 120));
 
     this.renderTurn('');
   },
@@ -76,6 +91,7 @@ export default {
       <div class="top-bar"><button class="back-btn" id="quit">←</button><h2>💣 ${this.cho}</h2>
         <span class="badge">${this.used.size}단어</span></div>
       <div class="screen-center">
+        <div class="bomb-wrap ${Date.now() - this.t0 > 15000 ? 'bomb-fast' : ''}">💣<span class="bomb-fuse">✨</span></div>
         <div class="caption">${this.cho}</div>
         ${solo ? `<p style="color:var(--fg-dim)">${this.turn === 'user' ? '🙋 내 차례!' : '🤖 AI 생각 중...'}</p>` : '<p style="color:var(--fg-dim)">폰을 든 사람이 입력!</p>'}
         <p id="msg" style="color:var(--bad); min-height:1.4em">${msg}</p>
@@ -95,6 +111,7 @@ export default {
       if (r === 'ok') {
         this.used.add(w);
         sfx.ok();
+        fx.vibrate([30]);
         if (this.aiLevel > 0) { this.turn = 'ai'; this.renderTurn(''); this.aiTurn(); }
         else this.renderTurn('');
       } else {
@@ -144,6 +161,7 @@ export default {
     this.exploded = true;
     clearTimers();
     sfx.boom();
+    fx.boom();
     const solo = this.aiLevel > 0;
     const loser = solo ? (this.turn === 'user' ? '😭 내가 졌다...' : '🏆 AI가 폭탄을 안았다!') : '지금 폰 든 사람 벌칙!';
     this.el.innerHTML = `

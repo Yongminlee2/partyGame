@@ -98,6 +98,40 @@ if (dict) {
   }
 }
 
+// ---- balance.json ----
+const balance = loadIfExists('balance.json');
+if (balance) {
+  check(Array.isArray(balance) && balance.length >= 150, `balance: 150개 이상 필요 (현재 ${balance?.length})`);
+  const seen = new Set();
+  for (const it of balance) {
+    const key = it.a + '|' + it.b;
+    check(typeof it.a === 'string' && it.a.length >= 2, `balance[${it.a}]: a 이상`);
+    check(typeof it.b === 'string' && it.b.length >= 2, `balance[${it.b}]: b 이상`);
+    check(typeof it.cat === 'string', `balance[${it.a}]: cat 없음`);
+    check(!seen.has(key), `balance[${it.a}]: 중복`);
+    seen.add(key);
+  }
+}
+
+// ---- truth.json ----
+const truth = loadIfExists('truth.json');
+if (truth) {
+  check(Array.isArray(truth) && truth.length >= 100, `truth: 100개 이상 필요 (현재 ${truth?.length})`);
+  const seen = new Set();
+  for (const q of truth) {
+    check(typeof q === 'string' && q.length >= 8, `truth[${q}]: 너무 짧음`);
+    check(!seen.has(q), `truth[${q}]: 중복`);
+    seen.add(q);
+  }
+}
+
+// ---- penalties.json ----
+const pen = loadIfExists('penalties.json');
+if (pen) {
+  check(Array.isArray(pen) && pen.length >= 60, `penalties: 60개 이상 필요 (현재 ${pen?.length})`);
+  check(new Set(pen).size === pen.length, 'penalties: 중복 있음');
+}
+
 if (errors.length) {
   console.error(`검증 실패 ${errors.length}건:`);
   for (const e of errors.slice(0, 30)) console.error(' - ' + e);
