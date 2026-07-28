@@ -3,12 +3,7 @@ import { createQuiz } from '../core/quiz.js';
 import { createRival, RIVAL_PARAMS } from '../ai/rival.js';
 import { sfx } from '../core/sound.js';
 import { load, save } from '../core/store.js';
-import { loadData, shuffle, pick } from '../core/data.js';
-
-export function makeChoices(item, pool, n = 4) {
-  const wrong = [...new Set(pool.map(p => p.back))].filter(b => b !== item.back);
-  return shuffle([item.back, ...shuffle(wrong).slice(0, n - 1)]);
-}
+import { loadData, pick } from '../core/data.js';
 
 const ROUNDS = 10;
 let timers = [];
@@ -62,7 +57,6 @@ export default {
     const items = pick(all.filter(i => i.level === level), ROUNDS)
       .map(i => ({ ...i, answer: i.back, hints: [i.meaning] }));
     this.quiz = createQuiz({ items, rounds: ROUNDS });
-    this.pool = all.filter(i => i.level === level);
     this.mode = mode;
     this.rival = mode === 'ai' ? createRival(level) : null;
     this.aiScore = 0;
@@ -73,9 +67,7 @@ export default {
     clearTimers();
     const q = this.quiz;
     const item = q.current();
-    const choices = this.mode === 'party' ? [] : makeChoices(item, this.pool, 4);
     let answered = false;
-    let retried = false;
 
     this.el.innerHTML = `
       <div class="top-bar">
@@ -89,7 +81,12 @@ export default {
         ${this.mode === 'ai' ? '<div style="width:100%;max-width:320px;height:8px;background:var(--bg-card);border-radius:4px"><div id="aibar" style="height:100%;width:0%;background:var(--accent2);border-radius:4px"></div></div>' : ''}
         ${this.mode === 'party'
           ? '<button class="btn" id="reveal">정답 보기</button>'
-          : `<div class="btn-row" id="choices">${choices.map(c => `<button class="btn secondary" data-c="${c}">${c}</button>`).join('')}</div>`}
+          : `<input type="text" id="guess" placeholder="뒤 두 글자 입력" autocomplete="off" maxlength="2" style="max-width:220px; text-align:center; font-size:1.4rem">
+             <div class="btn-row">
+               <button class="btn" id="submit">정답!</button>
+               <button class="btn secondary small" id="hintbtn">힌트 보기 (-30점)</button>
+               <button class="btn secondary small" id="giveup">모르겠어요</button>
+             </div>`}
       </div>`;
 
     this.el.querySelector('#quit').addEventListener('click', () => { clearTimers(); this.menu(); });
@@ -122,29 +119,35 @@ export default {
       }, delay);
     }
 
-    this.el.querySelectorAll('[data-c]').forEach(btn =>
-      btn.addEventListener('click', () => {
-        if (answered) return;
-        const r = q.answer(btn.dataset.c);
-        if (r.correct) {
-          answered = true;
-          clearTimers();
-          sfx.ok();
-          this.showResult(item, true, `+${r.score}점`, () => this.nextOrEnd());
-        } else if (!retried) {
-          retried = true;
-          sfx.bad();
-          btn.disabled = true;
-          q.revealHint();
-          this.el.querySelector('#hint').textContent = `힌트: ${item.meaning}`;
-        } else {
-          answered = true;
-          clearTimers();
-          sfx.bad();
-          q.pass();
-          this.showResult(item, false, '', () => this.nextOrEnd());
-        }
-      }));
+    const input = this.el.querySelector('#guess');
+    const tryAnswer = () => {
+      if (answered || !input.value.trim()) return;
+      const r = q.answer(input.value);
+      if (r.correct) {
+        answered = true;
+        clearTimers();
+        sfx.ok();
+        this.showResult(item, true, `+${r.score}점`, () => this.nextOrEnd());
+      } else {
+        sfx.bad();
+        input.value = '';
+        input.placeholder = '땡! 다시 도전';
+      }
+    };
+    this.el.querySelector('#submit').addEventListener('click', tryAnswer);
+    input.addEventListener('keydown', e => { if (e.key === 'Enter') tryAnswer(); });
+    this.el.querySelector('#hintbtn').addEventListener('click', () => {
+      const h = q.revealHint();
+      if (h) this.el.querySelector('#hint').textContent = `힌트: ${h}`;
+    });
+    this.el.querySelector('#giveup').addEventListener('click', () => {
+      if (answered) return;
+      answered = true;
+      clearTimers();
+      q.pass();
+      this.showResult(item, false, '', () => this.nextOrEnd());
+    });
+    input.focus();
   },
 
   showResult(item, ok, sub, onNext) {
