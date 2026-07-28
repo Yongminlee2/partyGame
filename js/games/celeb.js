@@ -1,12 +1,23 @@
 // 연예인 퀴즈: 초성 모드(오프라인 OK) + 사진 모드(위키피디아 실시간, 온라인 전용)
+// v2: 20초 제한시간 + 콤보 + 자동 진행 + 예능 연출 + AI 페르소나
 import { createQuiz } from '../core/quiz.js';
 import { createRival } from '../ai/rival.js';
 import { sfx } from '../core/sound.js';
+import { fx } from '../core/fx.js';
 import { load, save } from '../core/store.js';
 import { loadData, pick } from '../core/data.js';
 import { fetchPortrait, loadImage } from '../core/wiki.js';
 
 const ROUNDS = 10;
+const TIME_SEC = 20;
+const GRADE_COMMENTS = {
+  S: ['연예계 인명사전이세요?', '팬심 만렙 인정;;', '소속사 차리셔야겠다'],
+  A: ['연예뉴스 좀 보시는구나~', '오~ 덕력 좀 있는데?', '박수 짝짝짝'],
+  B: ['TV는 보고 사시는군요', '반은 맞혔다!', '나쁘지 않아~'],
+  C: ['요즘 연예인을 잘 모르시는군요…', '아이돌 세대교체를 따라가자', '다시 도전 각'],
+  D: ['혹시 TV가 없으신가요…', '연예계와 담 쌓으셨군요', '뉴스만 보시는 타입'],
+};
+
 let timers = [];
 function later(fn, ms) { timers.push(setTimeout(fn, ms)); }
 function every(fn, ms) { const t = setInterval(fn, ms); timers.push(t); return t; }
@@ -19,6 +30,7 @@ export default {
   unmount() { clearTimers(); },
 
   menu() {
+    clearTimers();
     const best = load('celeb.best', 0);
     const online = navigator.onLine;
     this.el.innerHTML = `
@@ -27,7 +39,7 @@ export default {
         <p class="caption" style="font-size:1.4rem">이름을 맞혀라!</p>
         ${best ? `<span class="badge">최고 기록 ${best}점</span>` : ''}
         <div class="btn-row" style="flex-direction:column; width:100%; max-width:300px">
-          <button class="btn" data-mode="cho">🔤 초성 퀴즈</button>
+          <button class="btn" data-mode="cho">🔤 초성 퀴즈 (20초 스피드)</button>
           <button class="btn" data-mode="ai">🤖 AI와 초성 대결</button>
           <button class="btn ${online ? '' : 'secondary'}" data-mode="photo" ${online ? '' : 'disabled'}>
             📷 사진 퀴즈 ${online ? '' : '(오프라인)'}
@@ -76,104 +88,131 @@ export default {
       this.el.innerHTML = '<div class="screen-center"><p>사진 불러오는 중...</p></div>';
       photo = await fetchPortrait(item.wiki);
       if (photo) {
-        try { photo.img = await loadImage(photo.imgUrl); }
-        catch { photo = null; }
+        try { await loadImage(photo.imgUrl); } catch { photo = null; }
       }
     }
-
     this.renderRound(item, photo);
   },
 
   renderRound(item, photo) {
     const q = this.quiz;
-    let answered = false;
+    let done = false;
+    let remain = TIME_SEC;
 
     this.el.innerHTML = `
       <div class="top-bar">
         <button class="back-btn" id="quit">←</button>
         <h2>${q.round()} / ${q.total()}</h2>
-        ${this.mode === 'ai' ? `<span class="badge">나 ${q.result().score} : ${this.aiScore} AI</span>` : `<span class="badge">${item.cat}</span>`}
+        ${this.mode === 'ai' ? `<span class="badge">나 ${q.result().score} : ${this.aiScore} AI</span>`
+          : `<span class="badge">${q.result().score}점${q.combo() >= 2 ? ' 🔥' + q.combo() : ''}</span>`}
       </div>
-      <div class="screen-center">
+      <div class="screen-center" style="gap:10px">
+        ${this.rival ? `
+          <div class="ai-face">
+            <span class="ai-emoji" id="aiemoji">${this.rival.emoji}</span>
+            <div><b>${this.rival.name}</b><div id="aibubble"></div></div>
+          </div>` : ''}
+        <div class="time-bar" id="tbar"><div style="width:100%"></div></div>
         ${photo
-          ? `<img src="${photo.imgUrl}" alt="" style="max-width:80vw; max-height:45vh; border-radius:12px; object-fit:cover">`
-          : `<div class="caption">${item.cho}</div>`}
+          ? `<img src="${photo.imgUrl}" alt="" style="max-width:80vw; max-height:38vh; border-radius:12px; object-fit:cover">`
+          : `<div class="caption">${item.cho}</div><span class="badge">${item.cat}</span>`}
         <div id="hints" style="color:var(--fg-dim); min-height:1.4em; text-align:center"></div>
-        ${this.mode === 'ai' ? '<div style="width:100%;max-width:320px;height:8px;background:var(--bg-card);border-radius:4px"><div id="aibar" style="height:100%;width:0%;background:var(--accent2);border-radius:4px"></div></div>' : ''}
         <input type="text" id="guess" placeholder="이름 입력" autocomplete="off" style="max-width:300px; text-align:center">
         <div class="btn-row">
           <button class="btn" id="submit">정답!</button>
-          ${photo ? '' : '<button class="btn secondary small" id="hint">힌트 보기 (-30점)</button>'}
-          <button class="btn secondary small" id="giveup">모르겠어요</button>
+          <button class="btn secondary small" id="hintbtn">힌트 (-30점)</button>
         </div>
       </div>`;
 
     this.el.querySelector('#quit').addEventListener('click', () => { clearTimers(); this.menu(); });
 
-    // AI 대결
-    if (this.rival && this.rival.willAnswer()) {
-      const delay = this.rival.answerDelayMs();
-      const bar = this.el.querySelector('#aibar');
-      const t0 = Date.now();
-      every(() => { if (bar) bar.style.width = Math.min(100, ((Date.now() - t0) / delay) * 100) + '%'; }, 100);
-      later(() => {
-        if (answered) return;
-        answered = true;
-        this.aiScore += 100;
-        sfx.bad();
-        q.pass();
-        this.showResult(item, photo, false, 'AI가 먼저 맞혔어요!');
-      }, delay);
-    }
-
-    const tryAnswer = () => {
-      if (answered) return;
-      const v = this.el.querySelector('#guess').value;
-      if (!v.trim()) return;
-      const r = q.answer(v);
-      if (r.correct) {
-        answered = true;
-        clearTimers();
-        sfx.ok();
-        this.showResult(item, photo, true, `+${r.score}점`);
-      } else {
-        sfx.bad();
-        const g = this.el.querySelector('#guess');
-        g.value = '';
-        g.placeholder = '땡! 다시 도전';
-      }
+    const finishRound = (ok, sub) => {
+      if (done) return;
+      done = true;
+      clearTimers();
+      this.roundResult(item, photo, ok, sub);
     };
 
+    // 제한시간
+    const bar = this.el.querySelector('#tbar');
+    every(() => {
+      remain -= 0.2;
+      if (bar) {
+        bar.firstElementChild.style.width = Math.max(0, (remain / TIME_SEC) * 100) + '%';
+        bar.classList.toggle('danger', remain <= 5);
+      }
+      if (remain <= 0) {
+        q.pass();
+        fx.wrong('시간 초과!');
+        sfx.bad();
+        finishRound(false, '');
+      }
+    }, 200);
+    let beat = 0;
+    every(() => {
+      beat++;
+      if (remain <= 5) sfx.heartbeat(3);
+      else if (beat % 2 === 0) sfx.heartbeat(1);
+    }, 1000);
+
+    // AI 대결
+    if (this.rival && this.rival.willAnswer()) {
+      const delay = Math.min(this.rival.answerDelayMs(), TIME_SEC * 1000 - 500);
+      later(() => { const e = this.el.querySelector('#aiemoji'); if (e) e.textContent = '😏'; }, delay * 0.7);
+      later(() => {
+        if (done) return;
+        this.aiScore += 100;
+        q.pass();
+        const bub = this.el.querySelector('#aibubble');
+        if (bub) bub.innerHTML = `<span class="ai-bubble">"${item.name}!" ${this.rival.taunt()}</span>`;
+        fx.wrong('뺏겼다!');
+        sfx.bad();
+        later(() => finishRound(false, `${this.rival.name}이 먼저 맞혔어요`), 900);
+      }, delay);
+    } else if (this.rival) {
+      later(() => { const e = this.el.querySelector('#aiemoji'); if (e) e.textContent = '🤔'; }, 2000);
+    }
+
+    const input = this.el.querySelector('#guess');
+    const tryAnswer = () => {
+      if (done || !input.value.trim()) return;
+      const r = q.answer(input.value, remain);
+      if (r.correct) {
+        sfx.ok();
+        if (r.combo >= 2) { fx.comboPop(r.combo); sfx.combo(r.combo); }
+        else fx.good();
+        if (r.combo >= 3) fx.confetti(20);
+        finishRound(true, `+${r.score}점`);
+      } else {
+        fx.wrong();
+        sfx.bad();
+        input.value = '';
+        input.placeholder = '땡! 다시!';
+      }
+    };
     this.el.querySelector('#submit').addEventListener('click', tryAnswer);
-    this.el.querySelector('#guess').addEventListener('keydown', e => { if (e.key === 'Enter') tryAnswer(); });
-    this.el.querySelector('#hint')?.addEventListener('click', () => {
+    input.addEventListener('keydown', e => { if (e.key === 'Enter') tryAnswer(); });
+    this.el.querySelector('#hintbtn').addEventListener('click', () => {
       const h = q.revealHint();
       if (h) this.el.querySelector('#hints').textContent = `힌트 ${q.hintsUsed()}: ${h}`;
-      else sfx.bad();
     });
-    this.el.querySelector('#giveup').addEventListener('click', () => {
-      if (answered) return;
-      answered = true;
-      clearTimers();
-      q.pass();
-      this.showResult(item, photo, false, '');
-    });
+    if (this.mode !== 'photo') input.focus();
   },
 
-  showResult(item, photo, ok, sub) {
+  roundResult(item, photo, ok, sub) {
+    clearTimers();
     this.el.innerHTML = `
       <div class="screen-center">
         <div style="font-size:3rem">${ok ? '⭕' : '❌'}</div>
         <div class="caption">${item.name}</div>
         ${photo ? `
-          <img src="${photo.imgUrl}" alt="" style="max-width:70vw; max-height:40vh; border-radius:12px; object-fit:cover">
+          <img src="${photo.imgUrl}" alt="" style="max-width:60vw; max-height:30vh; border-radius:12px; object-fit:cover">
           <p style="font-size:.75rem; color:var(--fg-dim)">
             <a href="${photo.pageUrl}" target="_blank" style="color:var(--fg-dim)">${photo.attribution} ↗</a>
           </p>` : `<p style="color:var(--fg-dim)">${item.hints[2]}</p>`}
         ${sub ? `<span class="badge">${sub}</span>` : ''}
-        <button class="btn" id="next">다음 →</button>
       </div>`;
-    this.el.querySelector('#next').addEventListener('click', () => this.nextOrEnd());
+    later(() => this.nextOrEnd(), photo ? 2000 : 1600);
   },
 
   nextOrEnd() {
@@ -181,16 +220,23 @@ export default {
     const res = this.quiz.result();
     const best = load('celeb.best', 0);
     if (res.score > best) save('celeb.best', res.score);
-    const win = this.mode === 'ai' ? (res.score > this.aiScore ? '🏆 승리!' : res.score === this.aiScore ? '🤝 무승부' : '😭 패배...') : '';
-    sfx.fanfare();
+    const won = res.score > this.aiScore;
+    const comment = GRADE_COMMENTS[res.grade][Math.floor(Math.random() * 3)];
+    sfx.grade(res.grade);
+    if (res.grade === 'S' || res.grade === 'A' || (this.mode === 'ai' && won)) fx.confetti();
     this.el.innerHTML = `
       <div class="screen-center">
-        <div class="caption">${win || '결과'}</div>
-        <div style="font-size:2.5rem; font-weight:900">${res.score}점</div>
-        ${this.mode === 'ai' ? `<p style="color:var(--fg-dim)">AI: ${this.aiScore}점</p>` : ''}
-        <p style="color:var(--fg-dim)">${res.total}문제 중 ${res.correct}개 정답</p>
+        <div style="font-size:4.5rem; font-weight:900; color:var(--accent)">${res.grade}</div>
+        <p class="caption" style="font-size:1.1rem">"${comment}"</p>
+        <div style="font-size:2.2rem; font-weight:900">${res.score}점</div>
+        ${res.maxCombo >= 2 ? `<span class="badge">🔥 최대 ${res.maxCombo}연속</span>` : ''}
+        ${this.mode === 'ai' ? `
+          <div class="ai-face" style="margin-top:8px">
+            <span class="ai-emoji">${won ? '😭' : this.rival.emoji}</span>
+            <span class="ai-bubble">"${won ? this.rival.winLine() : this.rival.loseLine()}" (AI ${this.aiScore}점)</span>
+          </div>` : `<p style="color:var(--fg-dim)">${res.total}문제 중 ${res.correct}개 정답</p>`}
         <div class="btn-row">
-          <button class="btn" id="again">다시 하기</button>
+          <button class="btn" id="again">한 판 더!</button>
           <button class="btn secondary" onclick="location.hash=''">홈으로</button>
         </div>
       </div>`;

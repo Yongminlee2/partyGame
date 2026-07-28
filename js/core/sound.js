@@ -43,6 +43,22 @@ function noise(dur, { gain = 0.3, when = 0 } = {}) {
 
 export const sfx = {
   tick() { tone(1000, 0.03, { type: 'square', gain: 0.05 }); },
+  // 카운트다운 심장박동: rate 1(느긋)~3(다급)
+  heartbeat(rate = 1) {
+    tone(70, 0.09, { type: 'sine', gain: 0.25 });
+    tone(55, 0.12, { type: 'sine', gain: 0.2, when: 0.12 / rate });
+  },
+  // 콤보가 쌓일수록 높은 음
+  combo(n) {
+    const base = 523;
+    tone(base * Math.pow(1.12, Math.min(n, 8)), 0.12, { gain: 0.14 });
+    tone(base * Math.pow(1.12, Math.min(n, 8)) * 1.5, 0.16, { when: 0.09, gain: 0.12 });
+  },
+  // 결과 등급: S가 제일 화려하게
+  grade(rank) {
+    const runs = { S: [523, 659, 784, 1047, 1319], A: [523, 659, 784, 1047], B: [523, 659, 784], C: [523, 587], D: [330, 262] };
+    (runs[rank] || runs.C).forEach((f, i) => tone(f, 0.16, { when: i * 0.11, gain: 0.13 }));
+  },
   ok() { tone(660, 0.1); tone(880, 0.15, { when: 0.08 }); },
   bad() { tone(220, 0.25, { type: 'sawtooth', slideTo: 110 }); },
   boom() { noise(0.6, { gain: 0.4 }); tone(80, 0.5, { type: 'sawtooth', gain: 0.3, slideTo: 40 }); },
