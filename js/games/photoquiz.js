@@ -1,27 +1,46 @@
 // 사진 퀴즈 만들기: 내 갤러리 사진으로 모자이크 퀴즈 출제.
-// 사진은 메모리에만 있고 어디에도 저장·전송되지 않는다.
+// 사진은 이 기기의 IndexedDB에만 저장된다 — 업로드·전송 없음. 삭제하면 바로 지워진다.
 import { sfx } from '../core/sound.js';
 import { shuffle } from '../core/data.js';
 import { mosaic, mosaicLevelAt } from '../core/photofx.js';
+import { allPhotos, addPhoto, updateAnswer, removePhoto } from '../core/photodb.js';
 
 const REVEAL_TIME = 20000;
 let timers = [];
 function every(fn, ms) { const t = setInterval(fn, ms); timers.push(t); }
 function clearTimers() { timers.forEach(clearInterval); timers = []; }
 
+function loadImg(url) {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    img.onload = () => resolve(img);
+    img.onerror = reject;
+    img.src = url;
+  });
+}
+
 export default {
   id: 'photoquiz', title: '사진 퀴즈 만들기', emoji: '📷',
 
-  mount(el) { this.el = el; this.items = this.items || []; this.builder(); },
+  mount(el) { this.el = el; this.builder(); },
   unmount() { clearTimers(); },
 
-  builder() {
+  async builder() {
     clearTimers();
+    this.el.innerHTML = '<div class="screen-center"><p>불러오는 중...</p></div>';
+
+    // 저장된 사진 로딩 (기기 안 IndexedDB)
+    const records = await allPhotos();
+    this.items = records.map(r => {
+      const url = URL.createObjectURL(r.blob);
+      return { id: r.id, url, answer: r.answer || '' };
+    });
+
     this.el.innerHTML = `
       <div class="top-bar"><button class="back-btn" onclick="location.hash=''">←</button><h2>📷 사진 퀴즈</h2></div>
       <p style="color:var(--fg-dim); padding-bottom:10px; text-align:center">
         사진을 고르고 정답(이름)을 붙이면 모자이크 퀴즈가 돼요.<br>
-        <b>사진은 기기 밖으로 나가지 않아요.</b></p>
+        <b>사진은 이 기기에만 저장되고 밖으로 나가지 않아요.</b></p>
       <label class="btn secondary" style="display:block; text-align:center; margin-bottom:12px">
         ➕ 사진 추가 <input type="file" id="file" accept="image/*" multiple style="display:none">
       </label>
@@ -31,34 +50,39 @@ export default {
       </div>`;
 
     const listEl = this.el.querySelector('#list');
-    const renderList = () => {
-      listEl.innerHTML = this.items.map((it, i) => `
-        <div class="card-panel" style="display:flex; gap:10px; align-items:center">
-          <img src="${it.url}" style="width:56px; height:56px; object-fit:cover; border-radius:8px">
-          <input type="text" data-i="${i}" value="${it.answer}" placeholder="정답 입력" style="flex:1">
-          <button class="btn danger small" data-del="${i}">✕</button>
-        </div>`).join('');
-      listEl.querySelectorAll('[data-i]').forEach(inp =>
-        inp.addEventListener('input', () => { this.items[Number(inp.dataset.i)].answer = inp.value; }));
-      listEl.querySelectorAll('[data-del]').forEach(b =>
-        b.addEventListener('click', () => { this.items.splice(Number(b.dataset.del), 1); this.builder(); }));
-    };
-    renderList();
+    listEl.innerHTML = this.items.map((it, i) => `
+      <div class="card-panel" style="display:flex; gap:10px; align-items:center">
+        <img src="${it.url}" style="width:56px; height:56px; object-fit:cover; border-radius:8px">
+        <input type="text" data-i="${i}" value="${it.answer.replace(/"/g, '&quot;')}" placeholder="정답 입력" style="flex:1">
+        <button class="btn danger small" data-del="${i}">✕</button>
+      </div>`).join('');
+    listEl.querySelectorAll('[data-i]').forEach(inp =>
+      inp.addEventListener('input', () => {
+        const it = this.items[Number(inp.dataset.i)];
+        it.answer = inp.value;
+        updateAnswer(it.id, inp.value);
+      }));
+    listEl.querySelectorAll('[data-del]').forEach(b =>
+      b.addEventListener('click', async () => {
+        const it = this.items[Number(b.dataset.del)];
+        await removePhoto(it.id);
+        URL.revokeObjectURL(it.url);
+        this.builder();
+      }));
 
-    this.el.querySelector('#file').addEventListener('change', (e) => {
-      for (const f of e.target.files) {
-        const url = URL.createObjectURL(f);
-        const img = new Image();
-        img.onload = () => { this.items.push({ url, img, answer: '' }); this.builder(); };
-        img.src = url;
-      }
+    this.el.querySelector('#file').addEventListener('change', async (e) => {
+      for (const f of e.target.files) await addPhoto(f, '');
+      this.builder();
     });
 
-    this.el.querySelector('#play').addEventListener('click', () => {
+    this.el.querySelector('#play').addEventListener('click', async () => {
       if (!this.items.length) return;
+      this.el.innerHTML = '<div class="screen-center"><p>준비 중...</p></div>';
+      for (const it of this.items) {
+        if (!it.img) { try { it.img = await loadImg(it.url); } catch { /* 깨진 사진은 건너뜀 */ } }
+      }
       this.deck = shuffle(this.items.filter(it => it.img));
       this.idx = 0;
-      this.score = 0;
       this.playRound();
     });
   },
