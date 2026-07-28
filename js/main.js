@@ -53,9 +53,41 @@ const placeholder = (title) => ({
   },
 });
 
-const routes = { home };
+const about = {
+  mount(el) {
+    el.innerHTML = `
+      <div class="top-bar"><button class="back-btn" onclick="location.hash=''">←</button><h2>ⓘ 정보·출처</h2></div>
+      <div class="card-panel" style="margin-bottom:12px">
+        <b>🎉 모여라 게임판</b>
+        <p style="color:var(--fg-dim); margin-top:6px">예능 단골 게임 7종. 서버·계정·광고 없음.</p>
+      </div>
+      <div class="card-panel" style="margin-bottom:12px">
+        <b>데이터 출처</b>
+        <p style="color:var(--fg-dim); margin-top:6px; line-height:1.7">
+          · 사자성어·제시어·라이어 설명: 직접 제작<br>
+          · 연예인 정보: 이름·직업 등 사실 정보만 수록<br>
+          · 연예인 사진: 앱에 저장하지 않고 위키피디아에서
+            실시간으로 불러오며 출처를 표기합니다<br>
+          · 단어 사전: 퍼블릭 도메인(CC0) 한국어 단어 목록<br>
+          · 효과음: 코드로 합성 (음원 파일 없음)</p>
+      </div>
+      <div class="card-panel" style="margin-bottom:12px">
+        <b>개인정보</b>
+        <p style="color:var(--fg-dim); margin-top:6px">
+          수집하는 정보가 없습니다. 기록은 이 기기에만 저장됩니다.<br>
+          <a href="privacy.html" style="color:var(--accent)">개인정보처리방침 보기</a></p>
+      </div>
+      <div class="card-panel">
+        <b>오픈소스</b>
+        <p style="color:var(--fg-dim); margin-top:6px">
+          <a href="https://github.com/Yongminlee2/partyGame" style="color:var(--accent)">github.com/Yongminlee2/partyGame</a></p>
+      </div>`;
+  },
+};
+
+const routes = { home, about };
 for (const g of GAMES) routes[g.id] = placeholder(g.title);
-routes.about = placeholder('정보·출처');
+routes.about = about;
 
 // 구현된 게임 모듈 등록 (placeholder 덮어쓰기)
 for (const game of [idiom, celeb, charades, bomb, liar, roulette, photoquiz]) routes[game.id] = game;
