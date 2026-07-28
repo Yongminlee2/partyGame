@@ -131,3 +131,80 @@ input[type=text], input[type=number] {
   outline: none;
 }
 input[type=text]:focus { border-color: var(--accent); }
+
+/* ===== v2 연출 엔진 (fx.js) ===== */
+#fx-layer { position: fixed; inset: 0; pointer-events: none; z-index: 999; overflow: hidden; }
+
+.fx-caption {
+  position: absolute; top: 38%; left: 50%; transform: translate(-50%, -50%);
+  font-size: 3rem; font-weight: 900; white-space: nowrap;
+  text-shadow: 0 4px 0 rgba(0,0,0,.55), 0 0 22px rgba(0,0,0,.5);
+  animation: fx-pop .9s ease-out forwards;
+}
+.fx-ok { color: #ffd400; }
+.fx-bad { color: #ff453a; animation: fx-stamp .9s ease-out forwards; }
+.fx-combo { color: #ff9500; animation: fx-spin-in .9s ease-out forwards; }
+
+@keyframes fx-pop {
+  0% { transform: translate(-50%,-50%) scale(.2); opacity: 0; }
+  25% { transform: translate(-50%,-50%) scale(1.25); opacity: 1; }
+  45% { transform: translate(-50%,-50%) scale(1); }
+  80% { opacity: 1; }
+  100% { transform: translate(-50%,-62%) scale(1); opacity: 0; }
+}
+@keyframes fx-stamp {
+  0% { transform: translate(-50%,-50%) scale(2.4) rotate(-18deg); opacity: 0; }
+  30% { transform: translate(-50%,-50%) scale(1) rotate(-8deg); opacity: 1; }
+  80% { opacity: 1; }
+  100% { transform: translate(-50%,-50%) scale(1) rotate(-8deg); opacity: 0; }
+}
+@keyframes fx-spin-in {
+  0% { transform: translate(-50%,-50%) scale(.3) rotate(-160deg); opacity: 0; }
+  35% { transform: translate(-50%,-50%) scale(1.15) rotate(6deg); opacity: 1; }
+  55% { transform: translate(-50%,-50%) scale(1) rotate(0); }
+  85% { opacity: 1; }
+  100% { transform: translate(-50%,-64%) scale(1); opacity: 0; }
+}
+
+.fx-confetti {
+  position: absolute; top: -12px; width: 10px; height: 14px; border-radius: 2px;
+  animation: fx-fall linear forwards;
+}
+@keyframes fx-fall {
+  to { transform: translateY(105vh) rotate(720deg); opacity: .9; }
+}
+
+.fx-flash { position: absolute; inset: 0; animation: fx-flash-out .2s ease-out forwards; }
+@keyframes fx-flash-out { from { opacity: 1; } to { opacity: 0; } }
+
+.fx-shake { animation: fx-shake-kf .45s ease-in-out; }
+@keyframes fx-shake-kf {
+  0%, 100% { transform: translate(0,0); }
+  15% { transform: translate(-9px, 3px); }
+  30% { transform: translate(8px, -4px); }
+  45% { transform: translate(-7px, -2px); }
+  60% { transform: translate(6px, 3px); }
+  75% { transform: translate(-4px, 1px); }
+  90% { transform: translate(3px, -1px); }
+}
+
+/* 카운트다운 바 */
+.time-bar { width: 100%; max-width: 340px; height: 10px; background: var(--bg-card); border-radius: 5px; overflow: hidden; }
+.time-bar > div { height: 100%; background: var(--ok); border-radius: 5px; transition: width .2s linear, background .3s; }
+.time-bar.danger > div { background: var(--bad); }
+
+/* AI 페르소나 */
+.ai-face { display: flex; align-items: center; gap: 10px; }
+.ai-emoji { font-size: 2.2rem; }
+.ai-bubble {
+  background: var(--bg-card); border-radius: 14px; padding: 8px 12px;
+  font-size: .95rem; position: relative; animation: fx-pop-sm .3s ease-out;
+}
+@keyframes fx-pop-sm { from { transform: scale(.6); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+
+/* 폭탄 */
+.bomb-wrap { position: relative; font-size: 5rem; display: inline-block; animation: bomb-wobble 1s ease-in-out infinite; }
+.bomb-fuse { position: absolute; top: -14px; right: -6px; font-size: 1.6rem; animation: fuse-flicker .25s linear infinite alternate; }
+@keyframes bomb-wobble { 0%,100% { transform: rotate(-4deg) scale(1); } 50% { transform: rotate(4deg) scale(1.04); } }
+@keyframes fuse-flicker { from { opacity: 1; transform: scale(1); } to { opacity: .5; transform: scale(1.25); } }
+.bomb-fast { animation-duration: .45s; }
