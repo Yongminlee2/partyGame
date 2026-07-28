@@ -5,10 +5,8 @@ import { sfx } from '../core/sound.js';
 import { load, save } from '../core/store.js';
 import { loadData, pick } from '../core/data.js';
 import { fetchPortrait, loadImage } from '../core/wiki.js';
-import { mosaic, mosaicLevelAt } from '../core/photofx.js';
 
 const ROUNDS = 10;
-const PHOTO_TIME = 30000; // 사진이 완전히 선명해지기까지
 let timers = [];
 function later(fn, ms) { timers.push(setTimeout(fn, ms)); }
 function every(fn, ms) { const t = setInterval(fn, ms); timers.push(t); return t; }
@@ -98,7 +96,7 @@ export default {
       </div>
       <div class="screen-center">
         ${photo
-          ? '<canvas id="pcanvas" width="320" height="400" style="border-radius:12px; max-width:80vw"></canvas>'
+          ? `<img src="${photo.imgUrl}" alt="" style="max-width:80vw; max-height:45vh; border-radius:12px; object-fit:cover">`
           : `<div class="caption">${item.cho}</div>`}
         <div id="hints" style="color:var(--fg-dim); min-height:1.4em; text-align:center"></div>
         ${this.mode === 'ai' ? '<div style="width:100%;max-width:320px;height:8px;background:var(--bg-card);border-radius:4px"><div id="aibar" style="height:100%;width:0%;background:var(--accent2);border-radius:4px"></div></div>' : ''}
@@ -111,15 +109,6 @@ export default {
       </div>`;
 
     this.el.querySelector('#quit').addEventListener('click', () => { clearTimers(); this.menu(); });
-
-    // 사진 모드: 모자이크가 점점 선명해짐
-    if (photo) {
-      const canvas = this.el.querySelector('#pcanvas');
-      const t0 = Date.now();
-      const draw = () => mosaic(photo.img, canvas, mosaicLevelAt(Date.now() - t0, PHOTO_TIME));
-      draw();
-      every(draw, 1000);
-    }
 
     // AI 대결
     if (this.rival && this.rival.willAnswer()) {
@@ -177,17 +166,13 @@ export default {
         <div style="font-size:3rem">${ok ? '⭕' : '❌'}</div>
         <div class="caption">${item.name}</div>
         ${photo ? `
-          <canvas id="rcanvas" width="320" height="400" style="border-radius:12px; max-width:70vw"></canvas>
+          <img src="${photo.imgUrl}" alt="" style="max-width:70vw; max-height:40vh; border-radius:12px; object-fit:cover">
           <p style="font-size:.75rem; color:var(--fg-dim)">
             <a href="${photo.pageUrl}" target="_blank" style="color:var(--fg-dim)">${photo.attribution} ↗</a>
           </p>` : `<p style="color:var(--fg-dim)">${item.hints[2]}</p>`}
         ${sub ? `<span class="badge">${sub}</span>` : ''}
         <button class="btn" id="next">다음 →</button>
       </div>`;
-    if (photo) {
-      const canvas = this.el.querySelector('#rcanvas');
-      mosaic(photo.img, canvas, 1); // 원본 공개
-    }
     this.el.querySelector('#next').addEventListener('click', () => this.nextOrEnd());
   },
 
