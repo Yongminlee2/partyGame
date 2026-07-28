@@ -17,7 +17,7 @@
 | 💣 폭탄 초성게임 | O | O | 사전 기반 단어 대결 |
 | 🤥 라이어 게임 | O | O | AI 4명 중 라이어 찾기 |
 | 🎡 복불복 룰렛 | - | O | - (도구) |
-| 📷 사진 퀴즈 만들기 | - | O | - (내 사진으로 출제) |
+| 📷 사진 퀴즈 만들기 | - | O | - (내 사진으로 출제, 기기 내 영구 저장) |
 
 AI는 전부 **내장 알고리즘**(난이도별 응답속도·정답률 파라미터, 사전 검색)이라
 서버·API 키 없이 오프라인에서도 동작한다.
@@ -111,7 +111,11 @@ node tools/build-choseong-dict.mjs   # WordChain 사전 필요
    *막힌 것: `actions/configure-pages`의 `enablement: true`는 기본 GITHUB_TOKEN 권한으론
    Pages를 못 켠다(관리자 권한 필요) → gh-pages 브랜치 방식(peaceiris/actions-gh-pages)으로
    전환 + 로컬에서 `git subtree split`으로 첫 브랜치를 만들어 즉시 라이브.*
-7. **안드로이드 래퍼** — WordChain의 AGP 9.2.1/Gradle 9.4.1 구성 재사용.
+7. **사진 퀴즈 영구 저장** — 처음엔 메모리 전용이라 앱을 닫으면 사진이 사라졌다.
+   IndexedDB에 Blob으로 저장하도록 개선(localStorage는 용량이 작아 사진에 부적합).
+   여전히 기기 밖으로는 안 나가고, ✕ 버튼으로 즉시 삭제 가능. 새로고침 후에도
+   사진·정답이 유지되는 것을 검증.
+8. **안드로이드 래퍼** — WordChain의 AGP 9.2.1/Gradle 9.4.1 구성 재사용.
    WebViewAssetLoader로 assets 서빙(ES 모듈 때문에 file:// 불가), 외부 링크는 브라우저로,
    뒤로가기는 WebView 히스토리 연동. `copyWebAssets` 태스크가 빌드마다 web/을 assets로 복사.
 
