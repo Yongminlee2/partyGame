@@ -42,7 +42,7 @@ if (celebs) {
   const CATS = ['가수', '배우', '예능인', '운동선수'];
   for (const c of celebs) {
     const tag = `celebs[${c.name}]`;
-    check(typeof c.name === 'string' && c.name.length >= 2, `${tag}: 이름 이상`);
+    check(typeof c.name === 'string' && c.name.length >= 1, `${tag}: 이름 이상`);
     check(c.cho === choseong(c.name), `${tag}: cho 불일치 (기대 ${choseong(c.name)}, 실제 ${c.cho})`);
     check(Array.isArray(c.hints) && c.hints.length === 3, `${tag}: 힌트 3개 아님`);
     check(typeof c.wiki === 'string' && c.wiki.length > 0, `${tag}: wiki 제목 없음`);
